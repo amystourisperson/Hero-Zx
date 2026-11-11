@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="Hero-Zx - game platformer pixel art về chàng nông dân vượt rừng giải cứu công chúa."
+    />
+    <meta name="theme-color" content="#173f3a" />
+    <title>Hero-Zx</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="game-card" aria-label="Hero-Zx">
+        <header class="topbar">
+          <div class="brand-block">
+            <span class="brand-mark" aria-hidden="true">◆</span>
+            <div>
+              <strong>HERO-ZX</strong>
+              <small>Hành trình của người nông dân</small>
+            </div>
+          </div>
+
+          <div class="hud" aria-live="polite">
+            <div class="hud-item"><span>Màn</span><strong id="stageValue">1/5</strong></div>
+            <div class="hud-item"><span>Xu</span><strong id="coinValue">0</strong></div>
+            <div class="hud-item"><span>Mạng</span><strong id="lifeValue">♥♥</strong></div>
+          </div>
+        </header>
+
+        <div class="progress-track" aria-label="Tiến trình màn chơi">
+          <span class="progress-dot active"></span>
+          <span class="progress-dot"></span>
+          <span class="progress-dot"></span>
+          <span class="progress-dot"></span>
+          <span class="progress-dot"></span>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="gameCanvas" width="960" height="540" aria-label="Khu vực chơi Hero-Zx"></canvas>
+
+          <div id="gameOverlay" class="overlay visible">
+            <div class="panel">
+              <p class="eyebrow" id="overlayEyebrow">PIXEL FOREST ADVENTURE</p>
+              <h1 id="overlayTitle">HERO-ZX</h1>
+              <p id="overlayText">
+                Chàng nông dân nhỏ bé lên đường xuyên qua khu rừng biến đổi để giải cứu công chúa.
+              </p>
+              <div class="control-guide" id="controlGuide">
+                <span><kbd>←</kbd> Trái</span>
+                <span><kbd>→</kbd> Phải</span>
+                <span><kbd>SPACE</kbd> Nhảy</span>
+              </div>
+              <button id="primaryButton" class="primary-button" type="button">Bắt đầu hành trình</button>
+            </div>
+          </div>
+
+          <div id="weatherBadge" class="weather-badge">☀ Rừng Nắng</div>
+          <div id="messageToast" class="message-toast" role="status"></div>
+        </div>
+
+        <div class="mobile-controls" aria-label="Điều khiển cảm ứng">
+          <button class="control-button" data-action="left" aria-label="Đi sang trái">◀</button>
+          <button class="control-button" data-action="right" aria-label="Đi sang phải">▶</button>
+          <button class="control-button jump-button" data-action="jump" aria-label="Nhảy">▲</button>
+        </div>
+
+        <footer class="game-footer">
+          <p>Thu thập xu · Né quái · Tìm cổng cuối màn</p>
+          <p class="desktop-hint">Phím A/D hoặc ←/→ · Space để nhảy</p>
+        </footer>
+      </section>
+    </main>
+
+    <script src="./game.js"></script>
+  </body>
+</html>
