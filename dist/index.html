@@ -13,7 +13,7 @@
   </head>
   <body>
     <main class="page-shell">
-      <section class="game-card" aria-label="Hero-Zx">
+      <section id="gameCard" class="game-card" aria-label="Hero-Zx">
         <header class="topbar">
           <div class="brand-block">
             <span class="brand-mark" aria-hidden="true">◆</span>
@@ -24,22 +24,39 @@
           </div>
 
           <div class="hud" aria-live="polite">
-            <div class="hud-item"><span>Màn</span><strong id="stageValue">1/5</strong></div>
+            <div class="hud-item"><span>Màn</span><strong id="stageValue">1/10</strong></div>
             <div class="hud-item"><span>Xu</span><strong id="coinValue">0</strong></div>
-            <div class="hud-item"><span>Mạng</span><strong id="lifeValue">♥♥</strong></div>
+            <div class="hud-item"><span>Mạng</span><strong id="lifeValue">♥♥♥♥♥</strong></div>
           </div>
         </header>
 
-        <div class="progress-track" aria-label="Tiến trình màn chơi">
-          <span class="progress-dot active"></span>
-          <span class="progress-dot"></span>
-          <span class="progress-dot"></span>
-          <span class="progress-dot"></span>
-          <span class="progress-dot"></span>
+        <div class="status-bar">
+          <div id="weatherBadge" class="weather-badge">☀ Rừng Nắng</div>
+          <div class="status-content">
+            <div id="messageToast" class="message-toast" role="status"></div>
+            <div id="battleControls" class="battle-controls" aria-label="Vũ khí đấu rồng" hidden>
+              <button type="button" data-weapon="dart" aria-pressed="false"><kbd>1</kbd> Phi tiêu</button>
+              <button type="button" data-weapon="sword" aria-pressed="false"><kbd>2</kbd> Kiếm</button>
+              <button type="button" data-weapon="bow" aria-pressed="false"><kbd>3</kbd> Cung</button>
+            </div>
+          </div>
+          <div class="status-actions">
+            <button id="chatButton" class="shop-button" type="button" disabled aria-haspopup="dialog">Chat</button>
+            <button id="shopButton" class="shop-button" type="button" disabled aria-haspopup="dialog">Shop 🔒</button>
+            <button id="weddingReplay" class="shop-button wedding-replay" type="button" hidden>Chơi lại</button>
+          </div>
         </div>
+
+        <div class="progress-track" aria-label="Tiến trình màn chơi"></div>
 
         <div class="canvas-wrap">
           <canvas id="gameCanvas" width="960" height="540" aria-label="Khu vực chơi Hero-Zx"></canvas>
+          <h2 id="weddingHeading" class="wedding-heading" hidden>Lễ cưới</h2>
+          <div id="heroSpeech" class="hero-speech" role="status" hidden></div>
+          <div id="bossHud" class="boss-hud" hidden>
+            <label id="bossName" for="bossHealth">Rồng Đỏ</label>
+            <progress id="bossHealth" max="100" value="100"></progress>
+          </div>
 
           <div id="gameOverlay" class="overlay visible">
             <div class="panel">
@@ -57,8 +74,6 @@
             </div>
           </div>
 
-          <div id="weatherBadge" class="weather-badge">☀ Rừng Nắng</div>
-          <div id="messageToast" class="message-toast" role="status"></div>
         </div>
 
         <div class="mobile-controls" aria-label="Điều khiển cảm ứng">
@@ -73,6 +88,68 @@
         </footer>
       </section>
     </main>
+
+    <dialog id="dragonDialogue" class="pact-dialog" aria-labelledby="pactTitle">
+      <h2 id="pactTitle">Khế ước với Rồng Lửa</h2>
+      <div class="pact-utterance" aria-live="polite" aria-atomic="true">
+        <strong id="dialogueSpeaker"></strong>
+        <em id="dialogueAction"></em>
+        <p id="dialogueLine"></p>
+      </div>
+      <div class="pact-actions">
+        <span id="dialogueStep"></span>
+        <button id="dialogueNext" class="shop-button" type="button" autofocus>Tiếp</button>
+      </div>
+    </dialog>
+
+    <dialog id="mathDialog" class="pact-dialog math-dialog" aria-labelledby="mathTitle">
+      <form id="mathForm">
+        <h2 id="mathTitle">Bẫy hàng rào</h2>
+        <p id="mathHint">Giải đúng để mở rào. Trả lời sai mất 1 mạng.</p>
+        <label id="mathPrompt" for="mathAnswer"></label>
+        <input id="mathAnswer" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="4"
+          placeholder="Nhập đáp án" aria-describedby="mathHint" autocomplete="off" required autofocus />
+        <button class="shop-button" type="submit">Trả lời</button>
+      </form>
+    </dialog>
+
+    <dialog id="chatDialog" class="chat-dialog" aria-labelledby="chatTitle">
+      <form id="chatForm">
+        <label id="chatTitle" for="chatInput">Hero nói gì?</label>
+        <input id="chatInput" type="text" maxlength="80" placeholder="Nhập lời thoại…" autocomplete="off" required autofocus />
+        <div class="chat-actions">
+          <button id="cancelChatButton" class="shop-button" type="button">Hủy</button>
+          <button class="shop-button" type="submit">Hiện lời thoại</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="shopDialog" class="shop-dialog" aria-labelledby="shopTitle">
+      <div class="shop-front" aria-hidden="true">
+        <span class="shop-awning"></span>
+        <span class="shop-window"></span>
+        <span class="shop-door"></span>
+      </div>
+      <h2 id="shopTitle">Shop vật phẩm</h2>
+      <p id="shopBalance"></p>
+      <div class="shop-items">
+        <button type="button" data-item="life">
+          <span><strong>Thêm 1 mạng</strong><small>Hồi ngay một mạng đã mất</small></span>
+          <span class="shop-price"></span>
+        </button>
+        <button type="button" data-item="shield">
+          <span><strong>Khiên bất tử</strong><small>Bảo vệ Hero trong 1,5 giây</small></span>
+          <span class="shop-price"></span>
+        </button>
+        <button type="button" data-item="freeze">
+          <span><strong>Đóng băng quái</strong><small>Quái đứng yên trong 3 giây</small></span>
+          <span class="shop-price"></span>
+        </button>
+      </div>
+      <form method="dialog">
+        <button class="shop-button" type="submit" autofocus>Quay lại game</button>
+      </form>
+    </dialog>
 
     <script src="./game.js"></script>
   </body>
