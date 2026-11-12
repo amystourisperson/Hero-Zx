@@ -90,13 +90,19 @@
       forest: ["#33446a", "#263653", "#203150", "#172541"],
       particles: ["#95b3eb70", "#b7d9ef80"],
     },
+    rain: {
+      count: 125, fall: 2.3, drift: -90, sway: 12,
+      particles: ["#aecfe980", "#c8e6ff9c", "#88b5d56b"],
+    },
   };
   const TRAPDOOR_SPIKE_Y = 515;
   const shopPrices = { life: 20, shield: 12, freeze: 16 };
   const SHIELD_DURATION = 1.5;
   const FREEZE_DURATION = 3;
-  const PET_SHIELD_DURATION = 2;
-  const PET_CAGE_X = 1308;
+  const PET_SHIELD_DURATION = 3;
+  const PET_CAGE_LEVEL = 1;
+  const PET_CAGE_X = 1390;
+  const PET_CAGE_Y = 174;
   const petConversation = [
     ["Pet", "Có ai không...? Làm ơn đưa tôi ra khỏi đây với..."],
     ["Hero", "Bình tĩnh nào, ta sẽ đưa ngươi ra. Từ giờ ngươi được tự do rồi!"],
@@ -390,16 +396,20 @@
 
   const nightLevels = [
     {
-      name: "Rừng Đèn Trăng", badge: "☾ Rừng Đèn Trăng", weather: "night",
+      name: "Rừng Đèn Trăng", badge: "☂ Rừng Mưa Đêm", weather: "night", rain: true,
       worldWidth: 2860, sky: ["#141b3a", "#465786"], checkpointX: 1460,
       platforms: [
         platform(320, 427, 138, 51, "log"), platform(502, 382, 165, 24, "log"),
+        platform(690, 330, 130, 24, "bridge"), platform(878, 278, 130, 24, "bridge"),
+        platform(1066, 226, 130, 24, "bridge"), platform(1254, PET_CAGE_Y, 240, 28, "bridge"),
         platform(905, 419, 155, 24, "bridge"), platform(1160, 426, 114, 52, "brick"),
         platform(1680, 418, 134, 22, "bridge"), platform(1860, 370, 130, 22, "bridge"),
         platform(2160, 420, 124, 24, "log"),
       ],
       hazards: [hazard("arrow", 754, 32), hazard("arrow", 2420, 32, 1.2), mathFence(2580, "−")],
       coins: [...coinLine(166, 444, 5, 32), ...coinLine(522, 347, 4, 30), ...coinLine(921, 384, 4, 29),
+        ...coinLine(718, 295, 3, 32), ...coinLine(906, 243, 3, 32),
+        ...coinLine(1094, 191, 3, 32), ...coinLine(1280, 139, 2, 32),
         ...coinLine(1350, 444, 4, 32), ...coinLine(1878, 335, 4, 30), ...coinLine(2520, 444, 4, 34)],
       enemies: [
         { type: "spider", x: 622, range: 48, speed: 1.15 },
@@ -407,7 +417,7 @@
         { type: "plant", x: 1360 }, { type: "boar", x: 2070, range: 60, speed: 1.25 },
       ],
       structures: [["gate", 205], ["lantern", 815], ["tower", 1460], ["lantern", 2370]],
-      intro: "Theo những đèn lồng qua rừng. Ô đá nháy sáng trước khi bắn tên.",
+      intro: "Mưa đêm phủ khu rừng. Theo dãy bậc gỗ và xu lên cao để giải cứu Rồng Trắng!",
     },
     {
       name: "Bến Nước Sao Rơi", badge: "☾ Bến Nước", weather: "night",
@@ -601,7 +611,7 @@
     cameraX = 0;
     jumpBuffer = 0;
     rescueTime = 0;
-    particles = createWeatherParticles(currentLevel.weather);
+    particles = createWeatherParticles(currentLevel.rain ? "rain" : currentLevel.weather);
     weatherBadge.textContent = currentLevel.badge;
     updateHud();
 
@@ -1060,9 +1070,9 @@
   }
 
   function triggerPetRescue() {
-    if (petRescued || currentLevelIndex !== 0 ||
+    if (petRescued || currentLevelIndex !== PET_CAGE_LEVEL || !player.grounded ||
         Math.abs(player.x + player.w / 2 - PET_CAGE_X) > 92 ||
-        Math.abs(player.y + player.h - GROUND_Y) > 110) return false;
+        Math.abs(player.y + player.h - PET_CAGE_Y) > 8) return false;
     state = "petDialogue";
     clearControls();
     player.vx = 0;
@@ -1088,7 +1098,7 @@
     clearControls();
     updateHud();
     playSound("finish");
-    showToast("Rồng Trắng đồng hành! Pet ngẫu nhiên tạo khiên bất tử trong 2 giây.", 4800);
+    showToast(`Rồng Trắng đồng hành! Pet ngẫu nhiên tạo khiên bất tử trong ${PET_SHIELD_DURATION} giây.`, 4800);
   }
 
   function updateWhitePet(dt) {
@@ -1100,7 +1110,7 @@
     if (petShieldWait > 0) return;
     petShieldTime = PET_SHIELD_DURATION;
     petShieldWait = 8 + Math.random() * 10;
-    showToast("Rồng Trắng bảo hộ! Bất tử trong 2 giây.", 2000);
+    showToast(`Rồng Trắng bảo hộ! Bất tử trong ${PET_SHIELD_DURATION} giây.`, PET_SHIELD_DURATION * 1000);
     playSound("coin");
   }
 
@@ -1514,7 +1524,7 @@
     }));
   }
 
-  function updateWeather(dt, weather = currentLevel?.weather) {
+  function updateWeather(dt, weather = currentLevel?.rain ? "rain" : currentLevel?.weather) {
     if (!weather) return;
     const { fall, drift, sway } = seasonWeather[weather];
     for (const particle of particles) {
@@ -1531,7 +1541,7 @@
   function render() {
     if (!currentLevel) {
       currentLevel = levels[0];
-      particles = createWeatherParticles(currentLevel.weather);
+      particles = createWeatherParticles(currentLevel.rain ? "rain" : currentLevel.weather);
     }
 
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
@@ -1848,22 +1858,22 @@
   }
 
   function drawPetCage() {
-    if (currentLevelIndex !== 0) return;
+    if (currentLevelIndex !== PET_CAGE_LEVEL) return;
     const x = PET_CAGE_X;
-    const top = GROUND_Y - 84;
+    const top = PET_CAGE_Y - 84;
     const open = petRescued || (state === "petDialogue" && petDialogueIndex > 0);
     ctx.fillStyle = "#334657";
     ctx.fillRect(x - 44, top, 88, 6);
-    ctx.fillRect(x - 44, GROUND_Y - 7, 88, 7);
+    ctx.fillRect(x - 44, PET_CAGE_Y - 7, 88, 7);
     ctx.fillStyle = "#607e8c";
     ctx.fillRect(x - 41, top + 6, 4, 71);
     ctx.fillRect(x + 37, top + 6, 4, 71);
-    if (!petRescued) drawDragon(x, GROUND_Y - 12, 48, Math.sin(elapsed * 5), whiteDragonColors);
+    if (!petRescued) drawDragon(x, PET_CAGE_Y - 12, 48, Math.sin(elapsed * 5), whiteDragonColors);
     ctx.fillStyle = "#9bb1bd";
     if (open) {
       // The hinged door swings clear of the dragon.
       ctx.fillRect(x + 42, top + 6, 22, 4);
-      ctx.fillRect(x + 42, GROUND_Y - 11, 22, 4);
+      ctx.fillRect(x + 42, PET_CAGE_Y - 11, 22, 4);
       for (let offset = 42; offset <= 62; offset += 10) ctx.fillRect(x + offset, top + 6, 3, 70);
     } else {
       for (let offset = -27; offset <= 27; offset += 18) ctx.fillRect(x + offset, top + 6, 4, 71);
@@ -1883,13 +1893,21 @@
     ctx.restore();
   }
 
+  function whitePetPose() {
+    const phase = elapsed * 1.8;
+    // Fly from one side of Hero to the other, even when Hero stands still.
+    const x = Math.round(player.x + player.w / 2 + Math.sin(phase) * 72);
+    const y = Math.round(Math.max(48, player.y - 30 - Math.cos(phase * 2) * 13));
+    const facing = Math.sign(player.vx + Math.cos(phase) * 129.6) || player.facing;
+    return { x, y, facing };
+  }
+
   function drawWhitePet() {
     if (!petRescued || !player) return;
-    const x = Math.round(player.x + player.w / 2 - player.facing * 16);
-    const y = Math.round(Math.max(55, player.y - 23 + Math.sin(elapsed * 4) * 5));
+    const { x, y, facing } = whitePetPose();
     ctx.save();
     ctx.translate(x, y);
-    ctx.scale(-player.facing, 1);
+    ctx.scale(-facing, 1);
     drawDragon(0, 0, 42, Math.sin(elapsed * 13) * 3, whiteDragonColors);
     ctx.restore();
     if (petShieldTime <= 0) return;
@@ -2658,13 +2676,25 @@
     ctx.fillRect(x + 9, y - 9, 4, 3);
   }
 
-  function drawWeather(weather = currentLevel.weather) {
+  function drawWeather(weather = currentLevel.rain ? "rain" : currentLevel.weather) {
     for (const particle of particles) {
       const x = Math.round(particle.x);
       const y = Math.round(particle.y);
       const size = Math.ceil(particle.size);
       ctx.fillStyle = particle.color;
-      if (weather === "spring") {
+      if (weather === "rain") {
+        // Short slanted streaks leave the platforms and hazards readable.
+        ctx.strokeStyle = particle.color;
+        ctx.lineWidth = particle.size > 3 ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 3, y + 8 + size * 2);
+        ctx.stroke();
+        if (y > GROUND_Y && y < GROUND_Y + 15) {
+          ctx.fillRect(x - 4, GROUND_Y + 2, 3, 1);
+          ctx.fillRect(x + 2, GROUND_Y + 1, 3, 1);
+        }
+      } else if (weather === "spring") {
         ctx.fillRect(x, y, size + 2, 3);
         ctx.fillRect(x + 1, y - 2, size, 6);
       } else if (weather === "summer") {

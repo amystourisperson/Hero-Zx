@@ -39,6 +39,6 @@ Sau đó mở địa chỉ được in trong terminal.
 
 ## Rồng Trắng đồng hành
 
-- Lại gần lồng Rồng Trắng ở màn 1 để giải cứu và đọc cuộc hội thoại.
-- Sau khi được cứu, pet bay trên đầu Hero, theo qua các màn và vẫn ở lại khi Hero mất mạng. Chơi lại từ đầu sẽ đặt pet về lồng.
-- Sau khoảng chờ ngẫu nhiên 8–18 giây, pet tạo khiên bất tử trong 2 giây, bảo vệ cả khi vượt ải và đấu rồng. Khiên pet đợi khiên đang dùng kết thúc; thời gian tạm dừng trong hội thoại và cửa hàng.
+- Ở màn 2, nhảy theo sáu bậc gỗ lên sàn cao để giải cứu Rồng Trắng và đọc cuộc hội thoại. Màn này có mưa đêm.
+- Sau khi được cứu, pet bay qua lại hai bên phía trên Hero, theo qua các màn và vẫn ở lại khi Hero mất mạng. Chơi lại từ đầu sẽ đặt pet về lồng.
+- Sau khoảng chờ ngẫu nhiên 8–18 giây, pet tạo khiên bất tử trong 3 giây, bảo vệ cả khi vượt ải và đấu rồng. Khiên pet đợi khiên đang dùng kết thúc; thời gian tạm dừng trong hội thoại và cửa hàng.
