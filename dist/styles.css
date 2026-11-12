@@ -465,6 +465,16 @@ kbd {
   background: #15111e91;
 }
 
+#petDialogue {
+  border-color: #b4e5ff;
+  background: #203443;
+}
+
+#petDialogue h2,
+#petSpeaker {
+  color: #dcf6ff;
+}
+
 .pact-dialog h2 {
   margin: 0 0 14px;
   color: #ffdb9a;

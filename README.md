@@ -36,3 +36,9 @@ Sau đó mở địa chỉ được in trong terminal.
 - Khi hết máu lần đầu, rồng hóa Cuồng Nộ. Mỗi lần tàng hình kéo dài 0,5 giây và đòn đánh không trúng trong thời gian đó
 - Sau khi cứu công chúa, lễ cưới hoa anh đào bắt đầu và Rồng Đỏ thu nhỏ thành pet
 - Hỗ trợ bàn phím và màn hình cảm ứng
+
+## Rồng Trắng đồng hành
+
+- Lại gần lồng Rồng Trắng ở màn 1 để giải cứu và đọc cuộc hội thoại.
+- Sau khi được cứu, pet bay trên đầu Hero, theo qua các màn và vẫn ở lại khi Hero mất mạng. Chơi lại từ đầu sẽ đặt pet về lồng.
+- Sau khoảng chờ ngẫu nhiên 8–18 giây, pet tạo khiên bất tử trong 2 giây, bảo vệ cả khi vượt ải và đấu rồng. Khiên pet đợi khiên đang dùng kết thúc; thời gian tạm dừng trong hội thoại và cửa hàng.

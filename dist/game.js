@@ -37,6 +37,11 @@
   const dialogueLine = document.getElementById("dialogueLine");
   const dialogueStep = document.getElementById("dialogueStep");
   const dialogueNext = document.getElementById("dialogueNext");
+  const petDialogue = document.getElementById("petDialogue");
+  const petSpeaker = document.getElementById("petSpeaker");
+  const petLine = document.getElementById("petLine");
+  const petStep = document.getElementById("petStep");
+  const petNext = document.getElementById("petNext");
   const mathDialog = document.getElementById("mathDialog");
   const mathForm = document.getElementById("mathForm");
   const mathPrompt = document.getElementById("mathPrompt");
@@ -90,6 +95,21 @@
   const shopPrices = { life: 20, shield: 12, freeze: 16 };
   const SHIELD_DURATION = 1.5;
   const FREEZE_DURATION = 3;
+  const PET_SHIELD_DURATION = 2;
+  const PET_CAGE_X = 1308;
+  const petConversation = [
+    ["Pet", "Có ai không...? Làm ơn đưa tôi ra khỏi đây với..."],
+    ["Hero", "Bình tĩnh nào, ta sẽ đưa ngươi ra. Từ giờ ngươi được tự do rồi!"],
+    ["Pet", "Ngài đã cứu tôi... Tôi không biết phải cảm ơn thế nào. Nếu ngài không chê, hãy để tôi đi theo và bảo vệ ngài nhé!"],
+  ];
+  const redDragonColors = {
+    outline: "#321b2a", wing: "#a92339", wingLight: "#e04b46", tail: "#c4343c",
+    body: "#db3c40", belly: "#ffb078", horn: "#f6d4a1", eye: "#ffdf77", foot: "#ff765d",
+  };
+  const whiteDragonColors = {
+    outline: "#39536e", wing: "#a5c9e1", wingLight: "#e6f7ff", tail: "#c9e2ee",
+    body: "#ffffff", belly: "#d8f3ff", horn: "#b4e5ff", eye: "#42baff", foot: "#daeaf5",
+  };
   const DRAGON_HP = 100;
   const ENRAGED_DRAGON_HP = 80;
   const DRAGON_CLOAK_DURATION = 0.5;
@@ -170,6 +190,10 @@
   let coinBalance = 0;
   let shieldTime = 0;
   let freezeTime = 0;
+  let petRescued = false;
+  let petDialogueIndex = 0;
+  let petShieldTime = 0;
+  let petShieldWait = 0;
   let enemyTime = 0;
   let respawnPoint = null;
   let levelCoins = [];
@@ -556,6 +580,7 @@
     arena = null;
     dragonDefeated = false;
     if (dragonDialogue.open) dragonDialogue.close();
+    if (petDialogue.open) petDialogue.close();
     if (mathDialog.open) mathDialog.close();
     activeMathFence = null;
     solvedFences.clear();
@@ -570,6 +595,7 @@
     enemyTime = elapsed;
     updateEnemies();
     shieldTime = 0;
+    petShieldTime = 0;
     freezeTime = 0;
     respawnPoint = currentLevel.spawn;
     cameraX = 0;
@@ -589,6 +615,10 @@
     lives = MAX_LIVES;
     totalCoins = 0;
     coinBalance = 0;
+    petRescued = false;
+    petDialogueIndex = 0;
+    petShieldTime = 0;
+    petShieldWait = 0;
     state = "playing";
     loadLevel(0);
     hideOverlay();
@@ -730,7 +760,7 @@
   function canBuy(item) {
     return state === "playing" && currentLevelIndex >= 1 && coinBalance >= shopPrices[item]
       && (item !== "life" || lives < MAX_LIVES)
-      && (item !== "shield" || shieldTime <= 0)
+      && (item !== "shield" || (shieldTime <= 0 && petShieldTime <= 0))
       && (item !== "freeze" || freezeTime <= 0);
   }
 
@@ -743,7 +773,7 @@
       button.disabled = !canBuy(item);
       const label = button.querySelector(".shop-price");
       const unavailable = item === "life" && lives === MAX_LIVES ? "Đầy mạng"
-        : (item === "shield" && shieldTime > 0) || (item === "freeze" && freezeTime > 0) ? "Đang dùng" : "";
+        : (item === "shield" && (shieldTime > 0 || petShieldTime > 0)) || (item === "freeze" && freezeTime > 0) ? "Đang dùng" : "";
       label.textContent = unavailable || `${shopPrices[item]} xu`;
     }
     shopDialog.showModal();
@@ -944,7 +974,7 @@
   }
 
   function update(dt) {
-    if (shopDialog.open || chatDialog.open || dragonDialogue.open || mathDialog.open) return;
+    if (shopDialog.open || chatDialog.open || dragonDialogue.open || petDialogue.open || mathDialog.open) return;
     elapsed += dt;
     speechTimer = Math.max(0, speechTimer - dt);
     if (toastTimer > 0) {
@@ -971,6 +1001,7 @@
     }
     if (state !== "playing") return;
 
+    updateWhitePet(dt);
     if (arena) {
       updateArena(dt);
       return;
@@ -987,7 +1018,7 @@
     const playerRect = { x: player.x + 4, y: player.y + 3, w: player.w - 8, h: player.h - 4 };
     const hazardHit = currentLevel.hazards.find((obstacle) => touchesHazard(obstacle, playerRect));
     const fell = player.y > HEIGHT + 140;
-    const protectedNow = shieldTime > 0;
+    const protectedNow = shieldTime > 0 || petShieldTime > 0;
     const hitByShot = updateEnemyShots(dt, playerRect);
     shieldTime = Math.max(0, shieldTime - dt);
     freezeTime = Math.max(0, freezeTime - dt);
@@ -1006,6 +1037,7 @@
       return;
     }
     updateCheckpoint();
+    if (triggerPetRescue()) return;
     if (triggerMathFence()) return;
     collectWeapons();
     if (currentLevel.goal.princess && !dragonDefeated && player.x >= currentLevel.goal.x - 195) {
@@ -1017,6 +1049,59 @@
 
     const targetCamera = Math.max(0, Math.min(currentLevel.worldWidth - WIDTH, player.x - WIDTH * 0.36));
     cameraX += (targetCamera - cameraX) * Math.min(1, dt * 5.5);
+  }
+
+  function showPetLine() {
+    const [speaker, line] = petConversation[petDialogueIndex];
+    petSpeaker.textContent = speaker;
+    petLine.textContent = line;
+    petStep.textContent = `${petDialogueIndex + 1}/${petConversation.length}`;
+    petNext.textContent = petDialogueIndex === 0 ? "Mở lồng" : petDialogueIndex === 1 ? "Tiếp" : "Cùng lên đường!";
+  }
+
+  function triggerPetRescue() {
+    if (petRescued || currentLevelIndex !== 0 ||
+        Math.abs(player.x + player.w / 2 - PET_CAGE_X) > 92 ||
+        Math.abs(player.y + player.h - GROUND_Y) > 110) return false;
+    state = "petDialogue";
+    clearControls();
+    player.vx = 0;
+    speechTimer = 0;
+    petDialogueIndex = 0;
+    updateHud();
+    showPetLine();
+    petDialogue.showModal();
+    return true;
+  }
+
+  function advancePetDialogue() {
+    if (state !== "petDialogue") return;
+    petDialogueIndex += 1;
+    if (petDialogueIndex < petConversation.length) {
+      showPetLine();
+      return;
+    }
+    petDialogue.close();
+    petRescued = true;
+    petShieldWait = 8 + Math.random() * 10;
+    state = "playing";
+    clearControls();
+    updateHud();
+    playSound("finish");
+    showToast("Rồng Trắng đồng hành! Pet ngẫu nhiên tạo khiên bất tử trong 2 giây.", 4800);
+  }
+
+  function updateWhitePet(dt) {
+    if (!petRescued) return;
+    petShieldTime = Math.max(0, petShieldTime - dt);
+    // Start the next random cooldown only after all active shields expire.
+    if (petShieldTime > 0 || shieldTime > 0) return;
+    petShieldWait = Math.max(0, petShieldWait - dt);
+    if (petShieldWait > 0) return;
+    petShieldTime = PET_SHIELD_DURATION;
+    petShieldWait = 8 + Math.random() * 10;
+    showToast("Rồng Trắng bảo hộ! Bất tử trong 2 giây.", 2000);
+    playSound("coin");
   }
 
   function moveHero(dt, width, platforms, slippery, windy) {
@@ -1288,7 +1373,7 @@
         arena.nextFire = arena.enraged ? 1.7 : 2.15;
       }
     }
-    const protectedNow = shieldTime > 0;
+    const protectedNow = shieldTime > 0 || petShieldTime > 0;
     shieldTime = Math.max(0, shieldTime - dt);
     freezeTime = Math.max(0, freezeTime - dt);
     const body = { x: player.x + 4, y: player.y + 3, w: player.w - 8, h: player.h - 4 };
@@ -1583,6 +1668,7 @@
       ctx.lineWidth = 2;
       ctx.strokeRect(player.x - 5, player.y - 5, player.w + 10, player.h + 8);
     }
+    drawWhitePet();
     for (const shot of arena.shots) {
       ctx.fillStyle = "#ee513e";
       ctx.fillRect(shot.x - 13, shot.y - 10, 26, 20);
@@ -1761,6 +1847,76 @@
     ctx.fillRect(x + 12, y + 10, 4, 2);
   }
 
+  function drawPetCage() {
+    if (currentLevelIndex !== 0) return;
+    const x = PET_CAGE_X;
+    const top = GROUND_Y - 84;
+    const open = petRescued || (state === "petDialogue" && petDialogueIndex > 0);
+    ctx.fillStyle = "#334657";
+    ctx.fillRect(x - 44, top, 88, 6);
+    ctx.fillRect(x - 44, GROUND_Y - 7, 88, 7);
+    ctx.fillStyle = "#607e8c";
+    ctx.fillRect(x - 41, top + 6, 4, 71);
+    ctx.fillRect(x + 37, top + 6, 4, 71);
+    if (!petRescued) drawDragon(x, GROUND_Y - 12, 48, Math.sin(elapsed * 5), whiteDragonColors);
+    ctx.fillStyle = "#9bb1bd";
+    if (open) {
+      // The hinged door swings clear of the dragon.
+      ctx.fillRect(x + 42, top + 6, 22, 4);
+      ctx.fillRect(x + 42, GROUND_Y - 11, 22, 4);
+      for (let offset = 42; offset <= 62; offset += 10) ctx.fillRect(x + offset, top + 6, 3, 70);
+    } else {
+      for (let offset = -27; offset <= 27; offset += 18) ctx.fillRect(x + offset, top + 6, 4, 71);
+      ctx.fillRect(x - 38, top + 38, 76, 4);
+      ctx.fillStyle = "#ffd774";
+      ctx.fillRect(x - 6, top + 36, 14, 15);
+      ctx.fillStyle = "#5e503a";
+      ctx.fillRect(x, top + 40, 3, 7);
+    }
+    ctx.save();
+    ctx.font = "bold 13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#203f49";
+    ctx.fillRect(x - 92, top - 30, 184, 23);
+    ctx.fillStyle = "#f1fbff";
+    ctx.fillText(open ? "Rồng Trắng đã tự do!" : "Lại gần để cứu Rồng Trắng", x, top - 14);
+    ctx.restore();
+  }
+
+  function drawWhitePet() {
+    if (!petRescued || !player) return;
+    const x = Math.round(player.x + player.w / 2 - player.facing * 16);
+    const y = Math.round(Math.max(55, player.y - 23 + Math.sin(elapsed * 4) * 5));
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(-player.facing, 1);
+    drawDragon(0, 0, 42, Math.sin(elapsed * 13) * 3, whiteDragonColors);
+    ctx.restore();
+    if (petShieldTime <= 0) return;
+    const centerX = player.x + player.w / 2;
+    const centerY = player.y + player.h / 2;
+    ctx.save();
+    ctx.fillStyle = "#b2eeff30";
+    ctx.strokeStyle = "#d6f8ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, player.w / 2 + 15, player.h / 2 + 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const angle = elapsed * 4 + i * Math.PI / 2;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(centerX + Math.cos(angle) * 33 - 2, centerY + Math.sin(angle) * 37 - 2, 4, 4);
+    }
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#203f49";
+    ctx.fillRect(centerX - 50, player.y + player.h + 10, 100, 20);
+    ctx.fillStyle = "#e4faff";
+    ctx.fillText(`Bảo hộ ${petShieldTime.toFixed(1)}s`, centerX, player.y + player.h + 24);
+    ctx.restore();
+  }
+
   function drawWorld() {
     ctx.save();
     ctx.translate(-Math.round(cameraX), 0);
@@ -1771,6 +1927,7 @@
     for (const block of currentLevel.platforms) drawPlatform(block);
     for (const obstacle of currentLevel.hazards) drawHazard(obstacle);
     drawCheckpoint();
+    drawPetCage();
     drawWeaponPickups();
     drawGoal(currentLevel.goal);
     for (const coin of levelCoins) if (!coin.collected) drawCoin(coin);
@@ -1799,6 +1956,7 @@
       ctx.lineWidth = 2;
       ctx.strokeRect(Math.round(player.x - 5), Math.round(player.y - 5), player.w + 10, player.h + 8);
     }
+    drawWhitePet();
     if (activeMathFence) drawMathFence();
     if (state === "rescuing") drawRescueHeart(currentLevel.goal);
 
@@ -2209,34 +2367,34 @@
     ctx.fillRect(x + 2, feetY - 3, 8, 3);
   }
 
-  function drawDragon(x, feetY, size = HERO_HEIGHT * 2, wingLift = 0) {
+  function drawDragon(x, feetY, size = HERO_HEIGHT * 2, wingLift = 0, colors = redDragonColors) {
     ctx.save();
     ctx.translate(x - size / 2, feetY - size);
     ctx.scale(size / 32, size / 32);
 
     ctx.save();
     ctx.translate(0, wingLift);
-    drawPixelShape("#321b2a", [[13, 17], [13, 10], [17, 5], [23, 2], [22, 9], [28, 7], [26, 15], [30, 14], [26, 23], [19, 25]]);
-    drawPixelShape("#a92339", [[15, 16], [15, 11], [21, 5], [20, 12], [25, 10], [23, 17], [27, 17], [24, 21], [19, 22]]);
-    drawPixelShape("#e04b46", [[16, 14], [20, 8], [18, 16], [23, 13], [21, 19], [17, 21]]);
+    drawPixelShape(colors.outline, [[13, 17], [13, 10], [17, 5], [23, 2], [22, 9], [28, 7], [26, 15], [30, 14], [26, 23], [19, 25]]);
+    drawPixelShape(colors.wing, [[15, 16], [15, 11], [21, 5], [20, 12], [25, 10], [23, 17], [27, 17], [24, 21], [19, 22]]);
+    drawPixelShape(colors.wingLight, [[16, 14], [20, 8], [18, 16], [23, 13], [21, 19], [17, 21]]);
     ctx.restore();
-    drawPixelShape("#321b2a", [[19, 23], [25, 27], [28, 25], [29, 20], [32, 18], [32, 26], [29, 30], [24, 32], [17, 31]]);
-    drawPixelShape("#c4343c", [[21, 25], [25, 29], [29, 27], [31, 22], [31, 26], [28, 29], [24, 31], [19, 30]]);
+    drawPixelShape(colors.outline, [[19, 23], [25, 27], [28, 25], [29, 20], [32, 18], [32, 26], [29, 30], [24, 32], [17, 31]]);
+    drawPixelShape(colors.tail, [[21, 25], [25, 29], [29, 27], [31, 22], [31, 26], [28, 29], [24, 31], [19, 30]]);
 
     // Horned head, long muzzle, curved neck and tucked legs.
-    drawPixelShape("#321b2a", [[2, 10], [5, 8], [6, 5], [6, 0], [10, 4], [12, 3], [14, 0], [14, 6], [16, 10], [16, 16], [20, 18], [23, 22], [23, 28], [20, 32], [5, 32], [5, 28], [8, 25], [9, 17], [5, 16], [1, 15], [0, 12]]);
-    drawPixelShape("#db3c40", [[2, 12], [7, 9], [8, 6], [12, 5], [14, 9], [14, 17], [20, 20], [21, 24], [20, 29], [17, 30], [7, 30], [10, 26], [11, 15], [5, 14], [2, 14]]);
-    drawPixelShape("#ffb078", [[11, 16], [13, 16], [12, 23], [15, 27], [12, 29], [8, 29], [10, 26]]);
-    drawPixelShape("#f6d4a1", [[7, 1], [10, 5], [8, 6], [7, 5]]);
-    drawPixelShape("#f6d4a1", [[13, 2], [13, 6], [11, 5]]);
-    ctx.fillStyle = "#ffdf77";
+    drawPixelShape(colors.outline, [[2, 10], [5, 8], [6, 5], [6, 0], [10, 4], [12, 3], [14, 0], [14, 6], [16, 10], [16, 16], [20, 18], [23, 22], [23, 28], [20, 32], [5, 32], [5, 28], [8, 25], [9, 17], [5, 16], [1, 15], [0, 12]]);
+    drawPixelShape(colors.body, [[2, 12], [7, 9], [8, 6], [12, 5], [14, 9], [14, 17], [20, 20], [21, 24], [20, 29], [17, 30], [7, 30], [10, 26], [11, 15], [5, 14], [2, 14]]);
+    drawPixelShape(colors.belly, [[11, 16], [13, 16], [12, 23], [15, 27], [12, 29], [8, 29], [10, 26]]);
+    drawPixelShape(colors.horn, [[7, 1], [10, 5], [8, 6], [7, 5]]);
+    drawPixelShape(colors.horn, [[13, 2], [13, 6], [11, 5]]);
+    ctx.fillStyle = colors.eye;
     ctx.fillRect(8, 8, 4, 3);
-    ctx.fillStyle = "#321b2a";
+    ctx.fillStyle = colors.outline;
     ctx.fillRect(8, 8, 1, 3);
     ctx.fillRect(3, 11, 2, 1);
     ctx.fillRect(4, 14, 6, 1);
     ctx.fillRect(16, 25, 5, 2);
-    ctx.fillStyle = "#ff765d";
+    ctx.fillStyle = colors.foot;
     ctx.fillRect(15, 29, 5, 2);
     ctx.restore();
   }
@@ -2568,7 +2726,7 @@
   }
 
   function handleKeyDown(event) {
-    if (shopDialog.open || chatDialog.open || dragonDialogue.open || mathDialog.open) return;
+    if (shopDialog.open || chatDialog.open || dragonDialogue.open || petDialogue.open || mathDialog.open) return;
     if ((event.code === "Enter" || event.code === "NumpadEnter") && state === "playing" &&
         !event.repeat && !event.target.closest?.("button, input, textarea, a")) {
       event.preventDefault();
@@ -2629,6 +2787,8 @@
   chatForm.addEventListener("submit", sendChat);
   weddingReplay.addEventListener("click", startGame);
   dialogueNext.addEventListener("click", advanceDragonPact);
+  petNext.addEventListener("click", advancePetDialogue);
+  petDialogue.addEventListener("cancel", (event) => event.preventDefault());
   dragonDialogue.addEventListener("cancel", (event) => event.preventDefault());
   mathForm.addEventListener("submit", submitMathAnswer);
   mathDialog.addEventListener("cancel", (event) => event.preventDefault());
