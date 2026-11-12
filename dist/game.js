@@ -19,6 +19,7 @@
   const chatForm = document.getElementById("chatForm");
   const chatInput = document.getElementById("chatInput");
   const heroSpeech = document.getElementById("heroSpeech");
+  const petSpeech = document.getElementById("petSpeech");
   const stageValue = document.getElementById("stageValue");
   const coinValue = document.getElementById("coinValue");
   const lifeValue = document.getElementById("lifeValue");
@@ -76,7 +77,7 @@
       particles: ["#ffe5a880", "#fff3ce85"],
     },
     autumn: {
-      count: 58, fall: 0.16, drift: 34, sway: 29,
+      count: 78, fall: 0.24, drift: 115, sway: 40,
       forest: ["#c58a6f", "#a56e57", "#ba6241", "#8b452e"],
       particles: ["#ffb648", "#f28331", "#d95336", "#ffd580"],
     },
@@ -100,6 +101,8 @@
   const SHIELD_DURATION = 1.5;
   const FREEZE_DURATION = 3;
   const PET_SHIELD_DURATION = 3;
+  const PET_WARNING_LEAD = 1.2;
+  const MAP_SWING_DURATION = 0.36;
   const PET_CAGE_LEVEL = 1;
   const PET_CAGE_X = 1390;
   const PET_CAGE_Y = 174;
@@ -119,6 +122,9 @@
   const DRAGON_HP = 100;
   const ENRAGED_DRAGON_HP = 80;
   const DRAGON_CLOAK_DURATION = 0.5;
+  const ENRAGED_FIRE_SPEED = 250;
+  const ENRAGED_FIRE_SPREAD = 210;
+  const ENRAGED_FIRE_MIN_DISTANCE = 180;
   const weapons = {
     dart: { name: "Phi tiêu", damage: 12, cooldown: 0.35, speed: 620, duration: 0.8, color: "#b8f7e9" },
     sword: { name: "Kiếm", damage: 30, cooldown: 0.55, range: 108, color: "#e1f4ff" },
@@ -170,6 +176,14 @@
       "Có ấm nước khổng lồ dưới đất à? Canh nhịp rồi nhảy nhé!",
       "Luồng hơi trước mặt hơi nóng tính. Chờ nó dịu rồi đi!",
     ],
+    flame: [
+      "Miệng bẫy đỏ lên rồi! Chờ lửa tắt hoặc nhảy qua lúc an toàn.",
+      "Bẫy sắp phun lửa. Canh nhịp, đừng đứng trên miệng phun nhé!",
+    ],
+    swamp: [
+      "Đầm lầy phía trước làm chậm bước chân. Có quái gần đó, hãy nhảy qua!",
+      "Bùn níu chân Hero! Nhảy lên để thoát lầy và né quái nhé!",
+    ],
     arrow: [
       "Ô đá sáng lên là tên sắp bắn từ dưới đất. Chờ tên bay qua nhé!",
       "Mũi tên phóng thẳng lên trời. Canh nhịp rồi bước qua!",
@@ -200,6 +214,8 @@
   let petDialogueIndex = 0;
   let petShieldTime = 0;
   let petShieldWait = 0;
+  let petFlight = null;
+  let petWarningActive = false;
   let enemyTime = 0;
   let respawnPoint = null;
   let levelCoins = [];
@@ -325,7 +341,7 @@
       intro: "Leo qua các tầng đá. Chờ luồng hơi nóng tắt trước khi chạy ngang miệng hốc.",
     },
     {
-      name: "Phế Tích Mùa Thu", badge: "🍂 Mùa Thu", weather: "autumn",
+      name: "Phế Tích Mùa Thu", badge: "🍂 Gió Mùa Thu", weather: "autumn", windy: true,
       worldWidth: 6100, sky: ["#e89a65", "#ffdb9d"], checkpointX: 3060,
       platforms: [
         platform(540, 418, 140, 22, "brick"), platform(730, 367, 120, 22, "brick"),
@@ -339,7 +355,9 @@
         platform(5210, 416, 97, 24, "ice"), platform(5570, 423, 140, 22, "brick"),
       ],
       hazards: [hazard("crevasse", 965, 445), hazard("trapdoor", 2240, 108), hazard("crevasse", 2440, 270),
-        hazard("crevasse", 3790, 440), hazard("spikes", 4340, 66), hazard("crevasse", 4960, 430)],
+        hazard("crevasse", 3790, 440), hazard("spikes", 4340, 66), hazard("crevasse", 4960, 430),
+        hazard("swamp", 350, 190), hazard("swamp", 3140, 210),
+        hazard("flame", 1540, 70), hazard("flame", 3650, 70, 1.3)],
       coins: [
         ...coinLine(165, 444, 5), ...coinLine(565, 383, 3, 36), ...coinLine(750, 332, 3, 36),
         ...coinLine(1065, 409, 3, 26), ...coinLine(1240, 378, 3, 29), ...coinLine(1490, 444, 4),
@@ -356,7 +374,7 @@
         { type: "ghost", x: 4710, y: 321, range: 91, speed: 1.05, phase: 1 },
         { type: "wisp", x: 5480, y: 353, range: 55, speed: 1.4 },
       ],
-      intro: "Lá cam phủ phế tích. Nhảy qua khe, né ma bay và zombie tuần tra.",
+      intro: "Gió cuốn lá qua phế tích. Né bẫy phun lửa và nhảy khỏi đầm lầy gần zombie!",
     },
     {
       name: "Đường Tuyết Tới Thành Rồng", badge: "❄ Mùa Đông", weather: "winter",
@@ -570,6 +588,8 @@
       facing: 1,
       invulnerable: 0,
       walkTime: 0,
+      swingTime: 0,
+      inSwamp: false,
     };
   }
 
@@ -580,6 +600,8 @@
   function loadLevel(index, showIntro = true) {
     currentLevelIndex = index;
     currentLevel = levels[index];
+    petFlight = null;
+    petWarningActive = false;
     speechTimer = 0;
     weddingTime = 0;
     gameCard.classList.remove("wedding");
@@ -648,6 +670,7 @@
 
   function hideOverlay() {
     overlay.classList.remove("visible");
+    primaryButton.blur();
   }
 
   function finishLevel() {
@@ -726,6 +749,7 @@
 
     if (arena) {
       player = createPlayer({ x: 125, y: GROUND_Y - HERO_HEIGHT });
+      petFlight = null;
       player.invulnerable = 1.8;
       arena.shots = [];
       arena.nextFire = 1.6;
@@ -739,6 +763,7 @@
 
   function respawnHero() {
     player = createPlayer(respawnPoint);
+    petFlight = null;
     enemyShots = [];
     jumpBuffer = 0;
     warnedHazards.clear();
@@ -869,7 +894,7 @@
   }
 
   function touchesHazard(obstacle, body) {
-    if (obstacle.kind === "mathFence") return false;
+    if (obstacle.kind === "mathFence" || obstacle.kind === "swamp") return false;
     if (obstacle.kind === "arrow" || obstacle.kind === "fallingRock") {
       const projectile = trapProjectile(obstacle);
       return projectile !== null && rectsIntersect(body, projectile);
@@ -887,7 +912,7 @@
 
   function isSurfaceHazard(obstacle) {
     return obstacle.kind === "spikes" || obstacle.kind === "trap" || obstacle.kind === "steam"
-      || obstacle.kind === "arrow" || obstacle.kind === "fallingRock";
+      || obstacle.kind === "flame" || obstacle.kind === "arrow" || obstacle.kind === "fallingRock";
   }
 
   function trapProjectile(obstacle) {
@@ -902,6 +927,10 @@
   }
 
   function hazardHeight(obstacle) {
+    if (obstacle.kind === "flame") {
+      const cycle = (elapsed + obstacle.phase) % 4;
+      return Math.round(96 * Math.max(0, Math.min(1, (cycle - 2.4) / 0.15, (3.4 - cycle) / 0.2)));
+    }
     if (obstacle.kind !== "steam") return spikeHeight(obstacle);
     const cycle = (elapsed + obstacle.phase) % 3.4;
     return Math.round(54 * Math.max(0, Math.min(1, (cycle - 1.9) / 0.35, (3.1 - cycle) / 0.3)));
@@ -1093,6 +1122,8 @@
     }
     petDialogue.close();
     petRescued = true;
+    petFlight = { x: PET_CAGE_X, y: PET_CAGE_Y - 12, vx: 0, vy: 0, facing: -1 };
+    petWarningActive = false;
     petShieldWait = 8 + Math.random() * 10;
     state = "playing";
     clearControls();
@@ -1103,28 +1134,43 @@
 
   function updateWhitePet(dt) {
     if (!petRescued) return;
+    updatePetFlight(dt);
     petShieldTime = Math.max(0, petShieldTime - dt);
     // Start the next random cooldown only after all active shields expire.
-    if (petShieldTime > 0 || shieldTime > 0) return;
+    if (petShieldTime > 0 || shieldTime > 0) {
+      petWarningActive = false;
+      return;
+    }
     petShieldWait = Math.max(0, petShieldWait - dt);
+    petWarningActive = petShieldWait > 0 && petShieldWait <= PET_WARNING_LEAD;
     if (petShieldWait > 0) return;
+    petWarningActive = false;
     petShieldTime = PET_SHIELD_DURATION;
     petShieldWait = 8 + Math.random() * 10;
     showToast(`Rồng Trắng bảo hộ! Bất tử trong ${PET_SHIELD_DURATION} giây.`, PET_SHIELD_DURATION * 1000);
     playSound("coin");
   }
 
+  function heroInSwamp() {
+    return !arena && player.grounded && Math.abs(player.y + player.h - GROUND_Y) < 6 &&
+      currentLevel.hazards.some(obstacle => obstacle.kind === "swamp" &&
+        player.x + player.w - 4 > obstacle.x && player.x + 4 < obstacle.x + obstacle.w);
+  }
+
   function moveHero(dt, width, platforms, slippery, windy) {
+    player.swingTime = Math.max(0, player.swingTime - dt);
+    player.inSwamp = heroInSwamp();
     const moveLeft = keys.has("ArrowLeft") || keys.has("KeyA") || touch.left;
     const moveRight = keys.has("ArrowRight") || keys.has("KeyD") || touch.right;
     const direction = Number(moveRight) - Number(moveLeft);
     const onSlipperyGround = player.grounded && slippery;
     const acceleration = onSlipperyGround ? 760 : 1800;
     const friction = onSlipperyGround ? 360 : 1900;
+    const maxSpeed = player.inSwamp ? PLAYER_SPEED * 0.45 : PLAYER_SPEED;
 
     if (direction !== 0) {
       player.vx += direction * acceleration * dt;
-      player.vx = Math.max(-PLAYER_SPEED, Math.min(PLAYER_SPEED, player.vx));
+      player.vx = Math.max(-maxSpeed, Math.min(maxSpeed, player.vx));
       player.facing = direction;
       player.walkTime += dt * Math.abs(player.vx) * 0.035;
     } else {
@@ -1149,6 +1195,8 @@
     player.vy = Math.min(player.vy, 950);
     movePlayerX(dt, platforms);
     movePlayerY(dt, platforms);
+    player.inSwamp = heroInSwamp();
+    if (player.inSwamp) player.vx = Math.max(-PLAYER_SPEED * 0.45, Math.min(PLAYER_SPEED * 0.45, player.vx));
     player.x = Math.max(0, Math.min(width - player.w, player.x));
     player.invulnerable = Math.max(0, player.invulnerable - dt);
   }
@@ -1177,6 +1225,7 @@
   }
 
   function enterArena() {
+    petFlight = null;
     enemyShots = [];
     arena = {
       returnX: player.x, returnCamera: cameraX, x: 715, feetY: GROUND_Y, hp: DRAGON_HP, facing: -1,
@@ -1192,6 +1241,7 @@
   }
 
   function leaveArena() {
+    petFlight = null;
     const { returnX, returnCamera } = arena;
     arena = null;
     dragonDefeated = true;
@@ -1227,7 +1277,7 @@
     bossHealth.max = ENRAGED_DRAGON_HP;
     bossHealth.value = ENRAGED_DRAGON_HP;
     playSound("hurt");
-    showToast("Rồng Lửa biến hình! Khi rồng biến mất, hãy đợi nó hiện lại rồi tấn công.", 4200, true);
+    showToast("Cuồng Nộ! Rồng bắn 3 tia lửa. Giữ khoảng cách và nhảy qua khe giữa các tia!", 5000, true);
   }
 
   function showPactLine() {
@@ -1341,6 +1391,32 @@
     arena.feetY += Math.max(-165 * dt, Math.min(165 * dt, feetY - arena.feetY));
   }
 
+  function fireDragonVolley() {
+    const direction = arena.facing;
+    const x = arena.x + direction * 52;
+    const y = arena.feetY - 23;
+    const distance = Math.abs(player.x + player.w / 2 - x);
+    // Let the fan spread before reaching Hero. Close melee range stays playable.
+    if (arena.enraged && distance < ENRAGED_FIRE_MIN_DISTANCE) {
+      arena.nextFire = 0.35;
+      return;
+    }
+    const speed = arena.enraged ? ENRAGED_FIRE_SPEED : 285;
+    const travelTime = Math.max(0.35, distance / speed);
+    const aim = Math.max(-155, Math.min(155, (player.y + 25 - y) / travelTime));
+    if (arena.enraged) {
+      // From the ground, fan upward so all three fireballs remain above the floor.
+      const centerVy = arena.feetY >= GROUND_Y - 35 ? Math.min(-ENRAGED_FIRE_SPREAD, aim) : aim;
+      for (const spread of [-ENRAGED_FIRE_SPREAD, 0, ENRAGED_FIRE_SPREAD]) {
+        arena.shots.push({ x, y, vx: direction * speed, vy: centerVy + spread });
+      }
+      arena.nextFire = 2.3;
+    } else {
+      arena.shots.push({ x, y, vx: direction * speed, vy: aim });
+      arena.nextFire = 2.15;
+    }
+  }
+
   function updateArena(dt) {
     moveHero(dt, WIDTH, arenaFloor, false, false);
     arena.cooldown = Math.max(0, arena.cooldown - dt);
@@ -1374,13 +1450,7 @@
     if (freezeTime <= 0 && !hidden) {
       arena.nextFire -= dt;
       if (arena.nextFire <= 0) {
-        const direction = arena.facing;
-        const x = arena.x + direction * 52;
-        const y = arena.feetY - 23;
-        const travelTime = Math.max(0.35, Math.abs(player.x + player.w / 2 - x) / 285);
-        const vy = Math.max(-155, Math.min(155, (player.y + 25 - y) / travelTime));
-        arena.shots.push({ x, y, vx: direction * 285, vy });
-        arena.nextFire = arena.enraged ? 1.7 : 2.15;
+        fireDragonVolley();
       }
     }
     const protectedNow = shieldTime > 0 || petShieldTime > 0;
@@ -1527,9 +1597,10 @@
   function updateWeather(dt, weather = currentLevel?.rain ? "rain" : currentLevel?.weather) {
     if (!weather) return;
     const { fall, drift, sway } = seasonWeather[weather];
+    const gust = weather === "autumn" ? 65 * Math.sin(elapsed * 0.8) : 0;
     for (const particle of particles) {
       particle.y += particle.speed * fall * dt;
-      particle.x += (drift + Math.sin(elapsed * 1.5 + particle.phase) * sway) * dt;
+      particle.x += (drift + gust + Math.sin(elapsed * 1.5 + particle.phase) * sway) * dt;
 
       if (particle.y > HEIGHT + 20) particle.y = -20;
       if (particle.y < -25) particle.y = HEIGHT + 20;
@@ -1561,6 +1632,7 @@
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
     }
     positionSpeechBubble();
+    positionPetSpeech();
   }
 
   function drawWedding() {
@@ -1894,12 +1966,40 @@
   }
 
   function whitePetPose() {
+    if (!petFlight) {
+      petFlight = {
+        x: player.x + player.w / 2 - player.facing * 60,
+        y: Math.max(48, player.y - 40), vx: 0, vy: 0, facing: player.facing,
+      };
+    }
+    return petFlight;
+  }
+
+  function updatePetFlight(dt) {
+    const pet = whitePetPose();
     const phase = elapsed * 1.8;
-    // Fly from one side of Hero to the other, even when Hero stands still.
-    const x = Math.round(player.x + player.w / 2 + Math.sin(phase) * 72);
-    const y = Math.round(Math.max(48, player.y - 30 - Math.cos(phase * 2) * 13));
-    const facing = Math.sign(player.vx + Math.cos(phase) * 129.6) || player.facing;
-    return { x, y, facing };
+    const targetX = player.x + player.w / 2 + Math.sin(phase) * 86;
+    const targetY = Math.max(48, player.y - 30 - Math.cos(phase * 2) * 13);
+    // Independent position, acceleration and speed keep the dragon from snapping
+    // up and down with Hero's jumps, while still catching up during a run.
+    pet.vx += ((targetX - pet.x) * 10 - pet.vx * 5) * dt;
+    pet.vy += ((targetY - pet.y) * 9 - pet.vy * 5) * dt;
+    pet.vx = Math.max(-340, Math.min(340, pet.vx));
+    pet.vy = Math.max(-190, Math.min(190, pet.vy));
+    pet.x += pet.vx * dt;
+    pet.y += pet.vy * dt;
+    pet.x = Math.max(24, Math.min((arena ? WIDTH : currentLevel.worldWidth) - 24, pet.x));
+    pet.y = Math.max(48, Math.min(GROUND_Y - 25, pet.y));
+    if (Math.abs(pet.vx) > 8) pet.facing = Math.sign(pet.vx);
+  }
+
+  function positionPetSpeech() {
+    petSpeech.hidden = !petRescued || !petWarningActive || state !== "playing";
+    if (petSpeech.hidden) return;
+    const pet = whitePetPose();
+    const x = pet.x - (arena ? 0 : Math.round(cameraX));
+    petSpeech.style.setProperty("--speech-x", `${x / WIDTH * 100}%`);
+    petSpeech.style.top = `max(60px, ${(pet.y - 48) / HEIGHT * 100}%)`;
   }
 
   function drawWhitePet() {
@@ -2146,6 +2246,46 @@
   function drawHazard(obstacle) {
     const { kind, x, w } = obstacle;
     if (kind === "mathFence") return;
+    if (kind === "swamp") {
+      ctx.fillStyle = "#353f27";
+      ctx.fillRect(x, GROUND_Y - 3, w, 27);
+      ctx.fillStyle = "#5b713b";
+      ctx.fillRect(x + 3, GROUND_Y, w - 6, 14);
+      ctx.fillStyle = "#89964b";
+      for (let i = 8; i < w - 6; i += 22) {
+        const bob = Math.round(Math.sin(elapsed * 2 + i) * 2);
+        ctx.fillRect(x + i, GROUND_Y + 4 + bob, 12, 2);
+      }
+      for (const edge of [x + 4, x + w - 8]) {
+        ctx.fillStyle = "#405b37";
+        ctx.fillRect(edge, GROUND_Y - 19, 3, 21);
+        ctx.fillRect(edge + 4, GROUND_Y - 12, 2, 15);
+        ctx.fillStyle = "#b59755";
+        ctx.fillRect(edge - 1, GROUND_Y - 23, 5, 8);
+      }
+      return;
+    }
+    if (kind === "flame") {
+      const cycle = (elapsed + obstacle.phase) % 4;
+      const warning = cycle >= 1.8 && cycle < 2.4;
+      const height = hazardHeight(obstacle);
+      ctx.fillStyle = "#423839";
+      ctx.fillRect(x, GROUND_Y - 8, w, 12);
+      ctx.fillStyle = warning ? "#ffb24f" : "#7c5350";
+      ctx.fillRect(x + 4, GROUND_Y - 6, w - 8, 5);
+      for (let i = 7; i < w - 8; i += 13) {
+        const flicker = Math.round(Math.sin(elapsed * 24 + i) * 5);
+        if (height > 4) {
+          drawPixelShape("#e85432", [[x + i - 4, GROUND_Y - 5], [x + i - 2, GROUND_Y - height * 0.6],
+            [x + i + 3, GROUND_Y - height + flicker], [x + i + 9, GROUND_Y - height * 0.5], [x + i + 10, GROUND_Y - 5]]);
+          drawPixelShape("#ffd16b", [[x + i, GROUND_Y - 5], [x + i + 4, GROUND_Y - height * 0.65], [x + i + 7, GROUND_Y - 5]]);
+        } else if (warning) {
+          ctx.fillStyle = "#ffda80";
+          ctx.fillRect(x + i, GROUND_Y - 15 - Math.abs(flicker), 3, 4);
+        }
+      }
+      return;
+    }
     if (kind === "arrow" || kind === "fallingRock") {
       const cycle = (elapsed + obstacle.phase) % 3.6;
       ctx.fillStyle = cycle >= 0.65 && cycle < 1.4 ? "#ffd37e" : "#657295";
@@ -2457,6 +2597,10 @@
     ctx.fillStyle = "#1a2724";
     ctx.fillRect(x + 5, y + 45 + Math.min(0, step), 12, 3);
     ctx.fillRect(x + 18, y + 45 - Math.max(0, step), 12, 3);
+    if (hero.inSwamp) {
+      ctx.fillStyle = "#68783d";
+      ctx.fillRect(x + 5, y + 44, 25, 4);
+    }
 
     if (!heldWeapon) return;
     ctx.save();
@@ -2471,7 +2615,17 @@
       ctx.restore();
       return;
     }
-    ctx.rotate(Math.PI / 5);
+    const swinging = hero === player && !arena && hero.swingTime > 0;
+    const swingPhase = swinging ? 1 - hero.swingTime / MAP_SWING_DURATION : 0;
+    const swordAngle = Math.PI / 5 + (swinging ? Math.sin(swingPhase * Math.PI * 2) * 1.35 : 0);
+    if (swinging) {
+      ctx.strokeStyle = "#dcfaff99";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 34, swordAngle - Math.PI / 2 - 0.6, swordAngle - Math.PI / 2 + 0.1);
+      ctx.stroke();
+    }
+    ctx.rotate(swordAngle);
     ctx.fillStyle = "#16272b";
     ctx.fillRect(-4, -29, 8, 28);
     ctx.fillRect(-2, -32, 4, 3);
@@ -2677,6 +2831,23 @@
   }
 
   function drawWeather(weather = currentLevel.rain ? "rain" : currentLevel.weather) {
+    if (weather === "autumn") {
+      ctx.save();
+      ctx.strokeStyle = "#fff1cf";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i++) {
+        const progress = (elapsed * 0.25 + i * 0.21) % 1;
+        const x = -180 + progress * (WIDTH + 360);
+        const y = 94 + i * 73 + Math.sin(elapsed + i) * 14;
+        ctx.globalAlpha = Math.sin(progress * Math.PI) * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + 60, y - 12, x + 128, y);
+        ctx.quadraticCurveTo(x + 165, y + 7, x + 153, y - 12);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     for (const particle of particles) {
       const x = Math.round(particle.x);
       const y = Math.round(particle.y);
@@ -2702,10 +2873,13 @@
         ctx.fillRect(x - pulse, y, pulse * 2 + 1, 1);
         ctx.fillRect(x, y - pulse, 1, pulse * 2 + 1);
       } else if (weather === "autumn") {
-        const tilt = Math.sin(elapsed * 3 + particle.phase) > 0 ? 2 : -2;
-        ctx.fillRect(x, y, size + 3, 3);
-        ctx.fillRect(x + tilt, y + 3, size + 1, 3);
-        ctx.fillRect(x + size + 2, y - 2, 2, 3);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(elapsed * 1.7 + particle.phase);
+        drawPixelShape(particle.color, [[-size - 1, 0], [-2, -size], [size + 2, -2], [size, 3], [-1, size]]);
+        ctx.fillStyle = "#81502d";
+        ctx.fillRect(-size - 3, 0, size + 5, 1);
+        ctx.restore();
       } else if (weather === "winter") {
         ctx.fillRect(x, y, size, size);
         if (size >= 4) {
@@ -2755,10 +2929,22 @@
     if (state === "playing") jumpBuffer = 0.13;
   }
 
+  function requestSwordSwing() {
+    if (state !== "playing" || arena || player.swingTime > 0) return;
+    // Cosmetic only: no hitbox, projectile, enemy damage or weapon purchase.
+    player.swingTime = MAP_SWING_DURATION;
+  }
+
   function handleKeyDown(event) {
     if (shopDialog.open || chatDialog.open || dragonDialogue.open || petDialogue.open || mathDialog.open) return;
+    if (event.target.closest?.("input, textarea, [contenteditable='true']")) return;
     if ((event.code === "Enter" || event.code === "NumpadEnter") && state === "playing" &&
-        !event.repeat && !event.target.closest?.("button, input, textarea, a")) {
+        !event.target.closest?.("button, a")) {
+      event.preventDefault();
+      if (!event.repeat) requestSwordSwing();
+      return;
+    }
+    if (event.code === "KeyC" && state === "playing" && !event.repeat) {
       event.preventDefault();
       openChat();
       return;

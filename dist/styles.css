@@ -570,6 +570,16 @@ kbd {
   content: "";
 }
 
+.pet-speech {
+  color: #183c56;
+  background: #ecfaff;
+  border-color: #7abbd9;
+}
+
+.pet-speech::after {
+  border-top-color: #ecfaff;
+}
+
 .shop-dialog h2 {
   margin: 0;
   color: var(--mint);
